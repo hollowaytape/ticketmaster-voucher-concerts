@@ -1,6 +1,3 @@
-var settlementUrl = "http://concerts.livenation.com/microsite/settlement#colMainWrap";
-
-
 var lat = 38.889931;   // default: washington, DC
 var lng = -77.009003;
 

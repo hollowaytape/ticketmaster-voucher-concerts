@@ -1,3 +1,6 @@
+import json
+from datetime import datetime
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.alert import Alert
@@ -7,7 +10,27 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.common.exceptions import NoSuchElementException
 
+from pymongo import MongoClient
+
+class Concert:
+    def __init__(self, name, venue, city, date):
+        self.name = name
+        self.venue = venue
+        self.city = city
+        self.date = date
+
 url = r"http://concerts.livenation.com/microsite/settlement#colMainWra"
+
+months = {'January': 1, 'Feburary': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+          'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
+
+
+client = MongoClient()
+db = client.test
+
+def date_handler(obj):
+    return obj.isoformat() if hasattr(obj, 'isoformat') else obj
+
 
 def init_driver():
     """Create Firefox profile and start the webdriver."""
@@ -27,28 +50,32 @@ def scrape_concerts(driver):
     try:
         full_table = driver.wait.until(expected_conditions.presence_of_element_located(
             (By.ID, 'result_national')))
-        #button = driver.wait.until(expected_conditions.element_to_be_clickable(
-        #    (By.NAME, 'Pin')))
-        print full_table
-        #button.click()
-        #for i in WebElement.find_elements_by_class_name(full_table, 'month'):
+
         for i in WebElement.find_elements_by_css_selector(full_table, 'tr'):
             try:
-                month = WebElement.find_element_by_css_selector(i, 'abbr').get_attribute('title')
-                day = WebElement.find_element_by_css_selector(i, 'div.date').text
+                month = months[WebElement.find_element_by_css_selector(i, 'abbr').get_attribute('title')]
+                day = int(WebElement.find_element_by_css_selector(i, 'div.date').text)
             except NoSuchElementException:
-                month = '?'
-                day = "?"
+                # There's a Counting Crowes concert that doesn't have a date yet, so skip it
+                continue
 
-            performer = WebElement.find_element_by_css_selector(i, 'a.event').text
+            name = WebElement.find_element_by_css_selector(i, 'a.event').text
             venue, city, time = WebElement.find_element_by_css_selector(i, 'td.venue').text.split('\n')
+            time = datetime.strptime(time, "%I:%M %p")
 
             # whoops, they're all showing up as "Voucher Sold Out for this Event" now.
             # they probably didn't want robots crawling the site! whoops, too late for that now.
 
-            print month, day, performer, venue, city, time
+            date = datetime(datetime.now().year, month, day, time.hour, time.minute)
+
+            concert = Concert(name, venue, city, date)
+            j = json.dumps(concert.__dict__, default=date_handler)
+            result = db.concerts.insert_one(concert.__dict__)
+
+            print result.inserted_id
+            
     except TimeoutException:
-        print "Box or Button not found in iceqube page"
+        print "Something went wrong, the page didn't quite load"
 
 def next_page(driver):
     try:

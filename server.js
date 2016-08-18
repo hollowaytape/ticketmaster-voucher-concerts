@@ -4,9 +4,26 @@ var fs = require('fs');
 var path = require('path');
 var baseDirectory = __dirname;
 
+var MongoClient = require('mongodb').MongoClient;
+var assert = require('assert');
+var ObjectId = require('mongodb').ObjectID;
+var MONGO_URI = process.env.MONGO_URI;
+
 var port = 9615;
 
 var GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+
+function findConcerts(db, callback) {
+    var cursor = db.collection('concerts').find();
+    cursor.each(function(err, doc) {
+        assert.equal(err, null);
+        if (doc != null) {
+            console.dir(doc);
+        } else {
+            callback();
+        }
+    });
+};
 
 http.createServer(function (request, response) {
    try {
@@ -14,7 +31,13 @@ http.createServer(function (request, response) {
 
      // need to use path.normalize so people can't access directories underneath baseDirectory
      var fsPath = baseDirectory + path.normalize(requestUrl.pathname);
-     console.log(path.normalize(requestUrl.pathname));
+     
+     //MongoClient.connect(MONGO_URI, function(err, db) {
+     //  assert.equal(null, err);
+     //   findConcerts(db, function() {
+     //       db.close();
+     //   });
+     //});
 
      response.writeHead(200);
      var fileStream = fs.createReadStream(fsPath);
